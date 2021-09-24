@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4D7E811A26FDCA3000FA4CC4 /* Player in Frameworks */ = {isa = PBXBuildFile; productRef = 4D7E811926FDCA3000FA4CC4 /* Player */; };
 		64019A0E269C101D00E16A51 /* ImageScrollView in Frameworks */ = {isa = PBXBuildFile; productRef = 64019A0D269C101D00E16A51 /* ImageScrollView */; };
 		640BEF2F2587A8FA0019B840 /* LbryNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 640BEF2E2587A8FA0019B840 /* LbryNotification.swift */; };
 		640BEF342587DB5D0019B840 /* NotificationTableViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 640BEF332587DB5D0019B840 /* NotificationTableViewCell.swift */; };
@@ -242,6 +243,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D7E811A26FDCA3000FA4CC4 /* Player in Frameworks */,
 				CCFB0B4F26653E0900696E0C /* OrderedCollections in Frameworks */,
 				6459121D2620745D00B2ABA5 /* Starscream in Frameworks */,
 				B63C54A7260C990C00DD26A9 /* AuthenticationServices.framework in Frameworks */,
@@ -538,6 +540,7 @@
 				CCFB0B4E26653E0900696E0C /* OrderedCollections */,
 				64A26CE426974B7A00AE19DE /* PerfectMarkdown */,
 				64019A0D269C101D00E16A51 /* ImageScrollView */,
+				4D7E811926FDCA3000FA4CC4 /* Player */,
 			);
 			productName = Odysee;
 			productReference = 64FBE79925502A290082AF2E /* Odysee.app */;
@@ -627,6 +630,7 @@
 				CCFB0B4D26653E0800696E0C /* XCRemoteSwiftPackageReference "swift-collections" */,
 				64A26CE326974B7900AE19DE /* XCRemoteSwiftPackageReference "Perfect-Markdown" */,
 				64019A0C269C101C00E16A51 /* XCRemoteSwiftPackageReference "ImageScrollView" */,
+				4D7E811826FDC8B400FA4CC4 /* XCRemoteSwiftPackageReference "Player" */,
 			);
 			productRefGroup = 64FBE79A25502A290082AF2E /* Products */;
 			projectDirPath = "";
@@ -1107,6 +1111,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		4D7E811826FDC8B400FA4CC4 /* XCRemoteSwiftPackageReference "Player" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/piemonte/Player";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.14.0;
+			};
+		};
 		64019A0C269C101C00E16A51 /* XCRemoteSwiftPackageReference "ImageScrollView" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/huynguyencong/ImageScrollView.git";
@@ -1182,6 +1194,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		4D7E811926FDCA3000FA4CC4 /* Player */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4D7E811826FDC8B400FA4CC4 /* XCRemoteSwiftPackageReference "Player" */;
+			productName = Player;
+		};
 		64019A0D269C101D00E16A51 /* ImageScrollView */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 64019A0C269C101C00E16A51 /* XCRemoteSwiftPackageReference "ImageScrollView" */;

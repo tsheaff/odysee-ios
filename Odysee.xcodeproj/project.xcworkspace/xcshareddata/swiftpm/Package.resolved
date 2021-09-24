@@ -200,6 +200,15 @@
         }
       },
       {
+        "package": "Player",
+        "repositoryURL": "https://github.com/piemonte/Player",
+        "state": {
+          "branch": null,
+          "revision": "d6a6c266e80f90fa93430371076964c196a1d2ec",
+          "version": "0.14.0"
+        }
+      },
+      {
         "package": "Promises",
         "repositoryURL": "https://github.com/google/promises.git",
         "state": {
