@@ -129,7 +129,7 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
     var imageViewerActive = false
     var otherContentWebUrl: String? = nil
     
-    var commentsPageSize: Int = 50
+    let commentsPageSize: Int = 50
     var commentsCurrentPage: Int = 1
     var commentsLastPageReached: Bool = false
     var commentsLoading: Bool = false

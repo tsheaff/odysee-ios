@@ -67,7 +67,7 @@ class ChannelViewController: UIViewController, UIGestureRecognizerDelegate, UISc
     
     var commentsDisabledChecked = false
     var commentsDisabled = false
-    var commentsPageSize: Int = 50
+    let commentsPageSize: Int = 50
     var commentsCurrentPage: Int = 1
     var commentsLastPageReached: Bool = false
     var commentsLoading: Bool = false

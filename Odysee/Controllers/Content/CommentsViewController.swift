@@ -31,7 +31,7 @@ class CommentsViewController: UIViewController, UITableViewDelegate, UITableView
     var commentsDisabled: Bool = false
     var commentAsPicker: UIPickerView!
     var claimId: String?
-    var commentsPageSize: Int = 50
+    let commentsPageSize: Int = 50
     var commentsCurrentPage: Int = 1
     var currentReplyToComment: Comment?
     var commentsLastPageReached: Bool = false
