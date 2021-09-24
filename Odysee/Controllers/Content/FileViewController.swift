@@ -142,12 +142,13 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
     var dislikesContent = false
     var reacting = false
     var playerConnected = false
-    var isLivestream = false
-    var isPlaylist = false
+
     var isLive = false
-    var isTextContent = false
-    var isImageContent = false
-    var isOtherContent = false
+
+    var claimSourceType: Claim.Source.SourceType {
+        return claim?.value?.source?.type ?? .other
+    }
+
     var avpcInitialised = false
     
     var loadingChannels = false
@@ -208,7 +209,7 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
         super.viewWillDisappear(animated)
         let appDelegate = UIApplication.shared.delegate as! AppDelegate
         
-        appDelegate.currentClaim = isTextContent || isImageContent || isOtherContent ? nil : claim
+        appDelegate.currentClaim = claimSourceType.isAudioOrVideo ? claim : nil
         appDelegate.mainController.updateMiniPlayer()
         
         if (appDelegate.player != nil) {
@@ -433,48 +434,40 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
             }
         }
     }
-    
+
     func displaySingleClaim(_ singleClaim: Claim) {
         commentsDisabledChecked = false
         resolvingView.isHidden = true
         descriptionArea.isHidden = true
         descriptionDivider.isHidden = true
-        
-        var contentType: String? = nil
-        if let mediaType = claim?.value?.source?.mediaType {
-            isTextContent = mediaType.starts(with: "text/")
-            isImageContent = mediaType.starts(with: "image/")
-            isOtherContent = !isTextContent && !isImageContent && !mediaType.starts(with: "video") && !mediaType.starts(with: "audio")
-            contentType = mediaType
-        }
-        
+
         otherContentWebUrl = nil
         closeOtherContentButton.isHidden = true
         contentInfoView.isHidden = true
         mediaView.isHidden = false
         mediaViewHeightConstraint.constant = 240
-        
-        if isTextContent || isImageContent || isOtherContent {
+
+        if !claimSourceType.isAudioOrVideo {
             dismissFileView.isHidden = true
             contentInfoView.isHidden = false
             closeOtherContentButton.isHidden = false
             contentInfoViewButton.isHidden = true
             contentInfoImage.image = nil
-            
-            let contentUrl = buildOtherContentUrl(singleClaim)
-            if isTextContent {
+
+            let otherContentURL = claim?.otherContentURL as! URL
+            if claimSourceType.isText {
                 webView.isHidden = false
                 contentInfoDescription.text = String.localized("Loading content...")
                 contentInfoLoading.isHidden = false
-                loadTextContent(url: contentUrl!, contentType: contentType)
+                loadTextContent(url: otherContentURL)
                 logFileView(url: singleClaim.permanentUrl!, timeToStart: 0)
-            } else if isImageContent {
-                var thumbnailDisplayUrl = contentUrl
+            } else if claimSourceType == .image {
+                var thumbnailDisplayUrl = otherContentURL
                 if !(singleClaim.value?.thumbnail?.url ?? "").isBlank {
                     thumbnailDisplayUrl = URL(string: singleClaim.value!.thumbnail!.url!)!
                 }
                 contentInfoImage.pin_setImage(from: thumbnailDisplayUrl)
-                PINRemoteImageManager.shared().downloadImage(with: contentUrl!) { result in
+                PINRemoteImageManager.shared().downloadImage(with: otherContentURL) { result in
                     guard let image = result.image else { return }
                     Thread.performOnMain {
                         self.imageViewer.display(image: image)
@@ -496,28 +489,28 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
             avpc.allowsPictureInPicturePlayback = true
             avpc.updatesNowPlayingInfoCenter = false
             addChild(avpc)
-            
+
             avpc.view.frame = mediaView.bounds
             mediaView.addSubview(avpc.view)
             avpc.didMove(toParent: self)
-            
+
             avpcInitialised = true
         }
-        
+
         if let publisher = claim?.signingChannel {
             Lbryio.areCommentsEnabled(channelId: publisher.claimId!, channelName: publisher.name!, completion: { enabled in
                 self.commentsDisabledChecked = true
                 self.checkCommentsDisabled(commentsDisabled: !enabled, currentClaim: singleClaim)
             })
         }
-        
+
         titleLabel.text = singleClaim.value?.title
-        
+
         let releaseTime: Double = Double(singleClaim.value?.releaseTime ?? "0")!
         let date: Date = NSDate(timeIntervalSince1970: releaseTime) as Date // TODO: Timezone check / conversion?
-        
+
         timeAgoLabel.text = Helper.fullRelativeDateFormatter.localizedString(for: date, relativeTo: Date())
-        
+
         // publisher
         var thumbnailUrl: URL? = nil
         publisherImageView.rounded()
@@ -529,7 +522,7 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
             } else {
                 livestreamerTitleLabel.text = singleClaim.signingChannel?.value?.title
                 livestreamerNameLabel.text = singleClaim.signingChannel?.name
-                
+
             }
             if (singleClaim.signingChannel?.value != nil && singleClaim.signingChannel?.value?.thumbnail != nil) {
                 thumbnailUrl = URL(string: (singleClaim.signingChannel!.value!.thumbnail!.url!))!
@@ -538,7 +531,7 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
             publisherTitleLabel.text = String.localized("Anonymous")
             publisherActionsArea.isHidden = true
         }
-        
+
         if thumbnailUrl != nil {
             if !isLivestream {
                 publisherImageView.load(url: thumbnailUrl!)
@@ -554,7 +547,7 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
                 livestreamerImageView.backgroundColor = Helper.lightPrimaryColor
             }
         }
-        
+
         if (singleClaim.value?.description ?? "").isBlank {
             descriptionArea.isHidden = true
             descriptionDivider.isHidden = true
@@ -564,7 +557,7 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
             descriptionLabel.text = claim?.value?.description
         }
     }
-    
+
     @IBAction func viewContentTapped(_ sender: UIButton) {
         imageViewer.isHidden = false
         imageViewer.layoutIfNeeded()
@@ -578,35 +571,34 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
             appDelegate.mainController.present(vc, animated: true, completion: nil)
         }
     }
-    
-    func buildOtherContentUrl(_ claim: Claim) -> URL? {
-        return URL(string: String(format: "https://cdn.lbryplayer.xyz/api/v4/streams/free/%@/%@/%@",
-                                  claim.name!, claim.claimId!, String((claim.value!.source!.sdHash!.prefix(6)))))
-    }
-    
-    func loadTextContent(url: URL, contentType: String?) {
+
+    func loadTextContent(url: URL) {
         DispatchQueue.global().async {
             do {
                 let contents = try String(contentsOf: url)
-                if contentType == "text/md" || contentType == "text/markdown" || contentType == "text/x-markdown" {
-                    guard let html = contents.markdownToHTML else {
-                        self.handleContentLoadError(String(format: String.localized("Could not load URL %@"), url.absoluteString))
+
+                switch self.claimSourceType {
+                    case .markdown:
+                        guard let html = contents.markdownToHTML else {
+                            self.handleContentLoadError(String(format: String.localized("Could not load URL %@"), url.absoluteString))
+                            return
+                        }
+
+                        let mdHtml = self.buildMarkdownHTML(html)
+                        self.loadWebViewContent(mdHtml)
+                    case .html:
+                        self.loadWebViewContent(contents)
+                    case .plaintext:
+                        self.loadWebViewContent(self.buildPlainTextHTML(contents))
+                    default:
                         return
-                    }
-                    
-                    let mdHtml = self.buildMarkdownHTML(html)
-                    self.loadWebViewContent(mdHtml)
-                } else if contentType == "text/html" {
-                    self.loadWebViewContent(contents)
-                } else {
-                    self.loadWebViewContent(self.buildPlainTextHTML(contents))
                 }
             } catch {
                 self.handleContentLoadError(String(format: String.localized("Could not load URL %@"), url.absoluteString))
             }
         }
     }
-    
+
     func loadWebViewContent(_ content: String) {
         DispatchQueue.main.async {
             self.webView.loadHTMLString(content, baseURL: nil)
@@ -668,10 +660,16 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
             self.webViewHeightConstraint.constant = 0
         }
     }
+
+    var isPlaylist: Bool {
+        return claim?.valueType == .collection
+    }
+
+    var isLivestream: Bool {
+        return !isPlaylist && claim?.value?.source == nil
+    }
     
     func displayClaim() {
-        isPlaylist = .collection == claim?.valueType
-        isLivestream = !isPlaylist && claim?.value?.source == nil
         detailsScrollView.isHidden = isLivestream
         livestreamChatView.isHidden = !isLivestream
         reloadStreamView.isHidden = !isLivestream
@@ -685,7 +683,7 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
             displaySingleClaim(claim!)
             if isLivestream {
                 loadLivestream()
-            } else if !isTextContent && !isImageContent && !isOtherContent {
+            } else if claimSourceType.isAudioOrVideo {
                 initializePlayerWithUrl(singleClaim: self.claim!, sourceUrl: getStreamingUrl(claim: claim!))
             }
         }
@@ -1057,7 +1055,7 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
             }
         }
         
-        if !isTextContent && !isImageContent && !isOtherContent {
+        if claimSourceType.isAudioOrVideo {
             initializePlayerWithUrl(singleClaim: singleClaim, sourceUrl: getStreamingUrl(claim: singleClaim))
         }
         loadAndDisplayViewCount(singleClaim)

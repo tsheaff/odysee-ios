@@ -84,6 +84,7 @@ class Claim: Decodable, Equatable, Hashable {
                  author, fee, streamType = "stream_type", source, video, audio, image, software, claims
         }
     }
+
     struct Source: Decodable {
         var sdHash: String?
         var mediaType: String?
@@ -94,25 +95,76 @@ class Claim: Decodable, Equatable, Hashable {
         private enum CodingKeys: String, CodingKey {
             case sdHash = "sd_hash", mediaType = "media_type", hash, name, size
         }
+
+        enum SourceType {
+            case plaintext
+            case markdown
+            case html
+
+            case image
+            case audio
+            case video
+            case other
+
+            var isAudioOrVideo: Bool {
+                switch self {
+                    case .audio: return true
+                    case .video: return true
+                    default: return false
+                }
+            }
+
+            var isText: Bool {
+                switch self {
+                    case .plaintext: return true
+                    case .markdown: return true
+                    case .html: return true
+                    default: return false
+                }
+            }
+        }
+
+        var type: SourceType {
+            guard let mediaType = mediaType else { return .other }
+            if mediaType.starts(with: "text/") {
+                if ["text/md", "text/markdown", "text/x-markdown"].contains(mediaType) {
+                    return .markdown
+                }
+                if ["text/html"].contains(mediaType) {
+                    return .html
+                }
+                return .plaintext
+            }
+
+            if mediaType.starts(with: "image/") { return .image }
+            if mediaType.starts(with: "video/") { return .video }
+            if mediaType.starts(with: "audio/") { return .audio }
+            return .other
+        }
     }
+
     struct Fee: Decodable {
         var amount: String?
         var currency: String?
         var address: String?
     }
+
     struct Location: Decodable {
         var country: String?
     }
+
     struct Resource: Decodable {
         // TODO: make this `URL?`
         var url: String?
     }
+
     struct StreamInfo: Decodable {
         var duration: Int64?
         var height: Int64?
         var width: Int64?
         var os: String?
     }
+
     struct Meta: Decodable {
         var effectiveAmount: String?
         
@@ -124,14 +176,21 @@ class Claim: Decodable, Equatable, Hashable {
     static func ==(lhs:Claim, rhs:Claim) -> Bool {
         return lhs.claimId == rhs.claimId
     }
+
     func hash(into hasher: inout Hasher) {
         claimId.hash(into: &hasher)
     }
+
     var outpoint: Outpoint? {
         if let txid = txid, let nout = nout {
             return Outpoint(txid: txid, index: nout)
         } else {
             return nil
         }
+    }
+
+    var otherContentURL: URL {
+        return URL(string: String(format: "https://cdn.lbryplayer.xyz/api/v4/streams/free/%@/%@/%@",
+                                  name!, claimId!, String((value!.source!.sdHash!.prefix(6)))))!
     }
 }
