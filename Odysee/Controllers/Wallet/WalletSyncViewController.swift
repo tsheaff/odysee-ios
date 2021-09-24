@@ -24,8 +24,8 @@ class WalletSyncViewController: UIViewController {
     }
     
     override func viewDidDisappear(_ animated: Bool) {
-        let appDelegate = UIApplication.shared.delegate as! AppDelegate
-        if (appDelegate.player != nil) {
+        if VideoPlayerManager.shared.isCurrentlyActive {
+            let appDelegate = UIApplication.shared.delegate as! AppDelegate
             appDelegate.mainController.toggleMiniPlayer(hidden: false)
         }
     }

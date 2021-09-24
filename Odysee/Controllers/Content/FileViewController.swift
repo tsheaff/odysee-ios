@@ -106,7 +106,6 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
     @IBOutlet weak var webView: WKWebView!
     @IBOutlet weak var dismissFileView: UIView!
 
-    let avpc = AVPlayerViewController()
     weak var commentsVc: CommentsViewController!
     
     var commentsDisabledChecked = false
@@ -141,15 +140,12 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
     var likesContent = false
     var dislikesContent = false
     var reacting = false
-    var playerConnected = false
 
     var isLive = false
 
     var claimSourceType: Claim.Source.SourceType {
         return claim?.value?.source?.type ?? .other
     }
-
-    var avpcInitialised = false
     
     var loadingChannels = false
     var postingChat = false
@@ -212,7 +208,7 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
         appDelegate.currentClaim = claimSourceType.isAudioOrVideo ? claim : nil
         appDelegate.mainController.updateMiniPlayer()
         
-        if (appDelegate.player != nil) {
+        if VideoPlayerManager.shared.isCurrentlyActive {
             appDelegate.mainController.toggleMiniPlayer(hidden: false)
         }
     }
@@ -435,6 +431,8 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
         }
     }
 
+    private var hasInitializedVideoView: Bool = false
+
     func displaySingleClaim(_ singleClaim: Claim) {
         commentsDisabledChecked = false
         resolvingView.isHidden = true
@@ -485,16 +483,24 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
                 contentInfoDescription.attributedText = messageString
                 otherContentWebUrl = url.odyseeString
             }
-        } else if !avpcInitialised {
-            avpc.allowsPictureInPicturePlayback = true
-            avpc.updatesNowPlayingInfoCenter = false
-            addChild(avpc)
+        } else if !hasInitializedVideoView {
+            hasInitializedVideoView = true
 
-            avpc.view.frame = mediaView.bounds
-            mediaView.addSubview(avpc.view)
-            avpc.didMove(toParent: self)
+            let playerView = VideoPlayerManager.shared.addPlayerView(to: self)
+//            self.player.view.frame = self.view.bounds
+//
+//            self.addChild(self.player)
+//            self.view.addSubview(self.player.view)
+//            self.player.didMove(toParent: self)
 
-            avpcInitialised = true
+            // TODO: Player Refactor: Handle PIP: https://developer.apple.com/documentation/avkit/adopting_picture_in_picture_in_a_custom_player
+//            avpc.allowsPictureInPicturePlayback = true
+
+            // TODO: Player Refactor: Understand this bit, use git blame etc.
+//            avpc.updatesNowPlayingInfoCenter = false
+
+            playerView.frame = mediaView.bounds
+            mediaView.addSubview(playerView)
         }
 
         if let publisher = claim?.signingChannel {
@@ -693,30 +699,25 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
         assert(Thread.isMainThread)
         
         livestreamOfflinePlaceholder.isHidden = true
-        
+
+        // TODO: Player Refactor: Figure out if this is still needed, shouldn't be with new notification pattern
+//        avpc.delegate = appDelegate.mainController
+
         let appDelegate = UIApplication.shared.delegate as! AppDelegate
-        avpc.delegate = appDelegate.mainController
-        if (!forceInit && appDelegate.player != nil && appDelegate.currentClaim != nil && appDelegate.currentClaim?.claimId == singleClaim.claimId) {
-            avpc.player = appDelegate.lazyPlayer
-            playerConnected = true
+        if !forceInit,
+           VideoPlayerManager.shared.isCurrentlyActive,
+           appDelegate.currentClaim != nil,
+           appDelegate.currentClaim?.claimId == singleClaim.claimId
+        {
+            // TODO: Player Refactor: Validate this behavior of doing nothing here
+//            avpc.player = appDelegate.lazyPlayer
             return
         }
         
         appDelegate.currentClaim = singleClaim
-        appDelegate.player?.pause()
-        
-        appDelegate.playerObserverAdded = false
-        
-        let asset = AVURLAsset(url: sourceUrl, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
-        let playerItem = AVPlayerItem(asset: asset)
-        appDelegate.player = AVPlayer(playerItem: playerItem)
+        VideoPlayerManager.shared.playWithURL(sourceUrl)
 
-        appDelegate.registerPlayerObserver()
-        avpc.player = appDelegate.lazyPlayer
-        playerConnected = true
         playRequestTime = Int64(Date().timeIntervalSince1970 * 1000.0)
-        
-        avpc.player!.play()
     }
     
     func displayRelatedPlaceholders() {
@@ -733,7 +734,7 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
         relatedContentListView.reloadData()
     }
     
-    func checkTimeToStart() {
+    func logTimeToStartPlayback() {
         if (fileViewLogged || loggingInProgress) {
             return
         }
@@ -751,18 +752,18 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
             logFileView(url: claimUrl, timeToStart: timeToStartMs)
         }
     }
-    
+
     func disconnectPlayer() {
-        avpc.player = nil
-        playerConnected = false
+        // TODO: Player Refactor: Move this into VideoPlayerManager, figure out where to hold state for connect/disconnect
+//        avpc.player = nil
     }
     
     func connectPlayer() {
-        let appDelegate = UIApplication.shared.delegate as! AppDelegate
-        if appDelegate.player != nil {
-            avpc.player = appDelegate.lazyPlayer
-        }
-        playerConnected = true
+//        let appDelegate = UIApplication.shared.delegate as! AppDelegate
+//        if appDelegate.player != nil {
+//            avpc.player = appDelegate.lazyPlayer
+//        }
+//        playerConnected = true
     }
     
     func logFileView(url: String, timeToStart: Int64) {
@@ -1108,13 +1109,6 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
     }
     
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
-        let appDelegate = UIApplication.shared.delegate as! AppDelegate
-        if object as AnyObject? === appDelegate.player {
-            if keyPath == "timeControlStatus" && appDelegate.player!.timeControlStatus == .playing {
-                checkTimeToStart()
-                return
-            }
-        }
         if keyPath == "contentSize" {
             if object as AnyObject? === relatedContentListView {
                 let contentHeight: CGFloat = relatedContentListView.contentSize.height
@@ -1199,11 +1193,14 @@ class FileViewController: UIViewController, UIGestureRecognizerDelegate, UINavig
     
     @IBAction func reloadTapped(_ sender: Any) {
         let appDelegate = UIApplication.shared.delegate as! AppDelegate
-        if let player = appDelegate.player {
-            if player.rate != 0 && player.error == nil {
-                return
-            }
-        }
+
+        // TODO: Player Refactor: Consider why we need this guard here at all
+        // Tapping reload shouldn't require that there be an error specifically
+//        if let player = appDelegate.player {
+//            if player.rate != 0 && player.error == nil {
+//                return
+//            }
+//        }
         
         if !isLivestream {
             return

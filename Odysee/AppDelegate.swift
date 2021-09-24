@@ -5,7 +5,6 @@
 //  Created by Akinwale Ariwodola on 02/11/2020.
 //
 
-import AVFoundation
 import MediaPlayer
 import Firebase
 import PINRemoteImage
@@ -21,63 +20,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     weak var mainTabViewController: UITabBarController?
     weak var mainNavigationController: UINavigationController?
     weak var miniPlayerView: UIView?
-    
-    var player: AVPlayer?
+
     var currentClaim: Claim?
     var pendingOpenUrl: String?
     var currentFileViewController: FileViewController?
-    var playerObserverAdded: Bool = false
-    
-    // One-time only lazily activate the Audio Session when playing a file.
-    // This prevents the app from taking over the audio stream on launch.
-    lazy var lazyPlayer: AVPlayer? = {
-        do {
-            try AVAudioSession.sharedInstance().setActive(true, options: [])
-        } catch {
-            print("Lazy AVAudioSession activation failed! \(error)")
-        }
-        return self.player
-    }()
     
     var mainController: MainViewController {
         return mainViewController as! MainViewController
     }
-    
-    func registerPlayerObserver() {
-        if player != nil && !playerObserverAdded {
-            player!.addObserver(self, forKeyPath: "timeControlStatus", options: [.old, .new], context: nil)
-            player!.currentItem!.addObserver(self, forKeyPath: "playbackLikelyToKeepUp", options: [.new], context: nil)
-            playerObserverAdded = true
-        }
-        NotificationCenter.default.addObserver(self, selector: #selector(playerDidFinishPlaying), name: .AVPlayerItemDidPlayToEndTime, object: nil)
-    }
-    
-    @objc func playerDidFinishPlaying(note: NSNotification) {
-        if currentFileViewController != nil {
-            currentFileViewController!.playNextPlaylistItem()
-        }
-    }
-    
-    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
-        if object as AnyObject? === player {
-            if keyPath == "timeControlStatus" && player!.timeControlStatus == .playing {
-                if currentFileViewController != nil {
-                    currentFileViewController!.checkTimeToStart()
-                }
-                return
-            }
-        }
-        
-        if let player = player,
-           let item = player.currentItem,
-           keyPath == "playbackLikelyToKeepUp",
-           item.isPlaybackLikelyToKeepUp,
-           currentFileViewController?.playerConnected != true,
-           player.timeControlStatus != .paused {
-            player.play()
-        }
-    }
-    
+
     static func completeFirstRun() {
         let defaults = UserDefaults.standard
         defaults.setValue(true, forKey: Helper.keyFirstRunCompleted)
@@ -154,6 +105,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         UIApplication.shared.beginReceivingRemoteControlEvents()
         let commandCenter = MPRemoteCommandCenter.shared()
 
+        // TODO: Player Refactor: Bring this back
+        /*
+
         // Add handler for Play / Pause Command
         commandCenter.playCommand.isEnabled = true
         commandCenter.playCommand.addTarget { [unowned self] event in
@@ -174,7 +128,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             return .commandFailed
         }
 
-        
+         */
+
         setupNowPlaying()
     }
     
@@ -186,6 +141,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     var thumbDownloadUUID: UUID?
     func setupNowPlaying() {
         // Define Now Playing Info
+        // TODO: Player Refactor: Bring this back
+        /*
         if currentFileViewController != nil && player != nil {
             if let claim = currentFileViewController?.claim {
                 var nowPlayingInfo = [String : Any]()
@@ -244,6 +201,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
             }
         }
+         */
     }
 
     // MARK: - Core Data Saving support
@@ -305,11 +263,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             pendingOpenUrl = finalTarget
         }
     }
-    
-    func resetPlayerObserver() {
-        playerObserverAdded = false
-    }
-    
+
     func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
         let index = tabBarController.selectedIndex
         let defaults = UserDefaults.standard

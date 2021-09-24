@@ -203,16 +203,14 @@ class MainViewController: UIViewController, AVPlayerViewControllerDelegate {
     }
     
     @IBAction func closeMiniPlayerTapped(_ sender: Any) {
-        let appDelegate = UIApplication.shared.delegate as! AppDelegate
-        if (appDelegate.player != nil) {
-            appDelegate.player?.pause()
-            appDelegate.player = nil
-            
-            appDelegate.resetPlayerObserver()
+        if VideoPlayerManager.shared.isCurrentlyActive {
+            VideoPlayerManager.shared.stop()
         }
-                                       
+
         miniPlayerTitleLabel.text = ""
         miniPlayerPublisherLabel.text = ""
+
+        let appDelegate = UIApplication.shared.delegate as! AppDelegate
         appDelegate.currentClaim = nil
         
         toggleMiniPlayer(hidden: true)
@@ -369,12 +367,14 @@ class MainViewController: UIViewController, AVPlayerViewControllerDelegate {
     
     func updateMiniPlayer() {
         let appDelegate = UIApplication.shared.delegate as! AppDelegate
-        if (appDelegate.currentClaim != nil && appDelegate.player != nil) {
+        if appDelegate.currentClaim != nil,
+           VideoPlayerManager.shared.isCurrentlyActive,
+           let playerLayer = VideoPlayerManager.shared.playerLayer
+        {
             miniPlayerTitleLabel.text = appDelegate.currentClaim?.value?.title
             miniPlayerPublisherLabel.text = appDelegate.currentClaim?.signingChannel?.value?.title
-            
+
             let mediaViewLayer: CALayer = miniPlayerMediaView.layer
-            let playerLayer: AVPlayerLayer = AVPlayerLayer(player: appDelegate.player)
             playerLayer.frame = mediaViewLayer.bounds
             playerLayer.videoGravity = .resizeAspectFill
             let _ = mediaViewLayer.sublayers?.popLast()
